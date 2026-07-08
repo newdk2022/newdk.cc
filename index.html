@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lzien</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B0C10;
+    --panel: #14161D;
+    --panel-line: #262A35;
+    --ink: #EDEDEF;
+    --muted: #8B90A0;
+    --signal: #F5A623;
+    --signal-dim: rgba(245,166,35,0.14);
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0;
+    padding:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Space Grotesk', sans-serif;
+    height:100%;
+    overflow-x:hidden;
+  }
+
+  /* ---------- background grid / signal texture ---------- */
+  .noise-grid{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    background-image:
+      linear-gradient(var(--panel-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--panel-line) 1px, transparent 1px);
+    background-size: 42px 42px;
+    opacity:0.25;
+    pointer-events:none;
+  }
+
+  .scan{
+    position:fixed;
+    left:0; right:0;
+    height:120px;
+    background:linear-gradient(180deg, transparent, rgba(245,166,35,0.05), transparent);
+    animation:scanmove 7s linear infinite;
+    pointer-events:none;
+    z-index:0;
+  }
+  @keyframes scanmove{
+    0%{ top:-120px; }
+    100%{ top:100%; }
+  }
+
+  /* ---------- MAIN PAGE ---------- */
+  main{
+    position:relative;
+    z-index:1;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:24px;
+  }
+
+  .id-tag{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.25em;
+    color:var(--signal);
+    text-transform:uppercase;
+    margin-bottom:22px;
+    border:1px solid var(--signal);
+    padding:6px 14px;
+    border-radius:2px;
+    background:var(--signal-dim);
+  }
+
+  .wordmark{
+    font-size:clamp(48px, 12vw, 108px);
+    font-weight:700;
+    letter-spacing:-0.03em;
+    line-height:1;
+    margin:0 0 18px 0;
+  }
+
+  .status-line{
+    font-family:'JetBrains Mono', monospace;
+    font-size:14px;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    letter-spacing:0.02em;
+  }
+
+  .status-line .dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--signal);
+    box-shadow:0 0 0 0 rgba(245,166,35,0.5);
+    animation:pulse 1.8s infinite;
+  }
+  @keyframes pulse{
+    0%{ box-shadow:0 0 0 0 rgba(245,166,35,0.45); }
+    70%{ box-shadow:0 0 0 10px rgba(245,166,35,0); }
+    100%{ box-shadow:0 0 0 0 rgba(245,166,35,0); }
+  }
+
+  .cursor{
+    display:inline-block;
+    width:9px;
+    height:16px;
+    background:var(--signal);
+    margin-left:2px;
+    animation:blink 1s steps(1) infinite;
+    vertical-align:-2px;
+  }
+  @keyframes blink{
+    0%,49%{ opacity:1; }
+    50%,100%{ opacity:0; }
+  }
+
+  .reopen{
+    margin-top:44px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.12em;
+    color:var(--muted);
+    background:transparent;
+    border:1px solid var(--panel-line);
+    padding:10px 18px;
+    border-radius:2px;
+    cursor:pointer;
+    transition:border-color 0.2s ease, color 0.2s ease;
+  }
+  .reopen:hover{
+    border-color:var(--signal);
+    color:var(--signal);
+  }
+
+  /* ---------- MODAL ---------- */
+  .overlay{
+    position:fixed;
+    inset:0;
+    z-index:10;
+    background:rgba(6,7,10,0.78);
+    backdrop-filter: blur(6px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    transition:opacity 0.35s ease;
+  }
+  .overlay.hidden{
+    opacity:0;
+    pointer-events:none;
+  }
+
+  .card{
+    position:relative;
+    width:100%;
+    max-width:400px;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:6px;
+    padding:34px 28px 26px 28px;
+    transform:translateY(0);
+    transition:transform 0.35s ease, opacity 0.35s ease;
+  }
+  .overlay.hidden .card{
+    transform:translateY(14px);
+    opacity:0;
+  }
+
+  .card::before{
+    content:"";
+    position:absolute;
+    top:0; left:0; right:0;
+    height:2px;
+    background:var(--signal);
+  }
+
+  .close-btn{
+    position:absolute;
+    top:14px;
+    right:14px;
+    width:30px;
+    height:30px;
+    border:1px solid var(--panel-line);
+    background:transparent;
+    color:var(--muted);
+    border-radius:2px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:15px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+  .close-btn:hover{
+    border-color:var(--signal);
+    color:var(--signal);
+    transform:rotate(90deg);
+  }
+
+  .card-eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.2em;
+    color:var(--signal);
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+
+  .card-title{
+    font-size:26px;
+    font-weight:600;
+    margin:0 0 26px 0;
+    letter-spacing:-0.01em;
+  }
+
+  .link-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .link-item a{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    text-decoration:none;
+    color:var(--ink);
+    border:1px solid var(--panel-line);
+    border-radius:4px;
+    padding:13px 14px;
+    transition:border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+  }
+  .link-item a:hover{
+    border-color:var(--signal);
+    background:var(--signal-dim);
+    transform:translateX(3px);
+  }
+
+  .link-code{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    color:var(--signal);
+    border:1px solid currentColor;
+    padding:3px 6px;
+    border-radius:2px;
+    min-width:38px;
+    text-align:center;
+    letter-spacing:0.03em;
+  }
+
+  .link-body{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+
+  .link-name{
+    font-size:15px;
+    font-weight:500;
+  }
+
+  .link-handle{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    color:var(--muted);
+  }
+
+  .link-arrow{
+    margin-left:auto;
+    color:var(--muted);
+    font-family:'JetBrains Mono', monospace;
+    font-size:14px;
+  }
+
+  @media (max-width:420px){
+    .card{ padding:28px 20px 22px 20px; }
+    .card-title{ font-size:22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="noise-grid"></div>
+<div class="scan"></div>
+
+<!-- MAIN PAGE -->
+<main>
+  <div class="id-tag">ID // lzien</div>
+  <h1 class="wordmark">lzien</h1>
+  <div class="status-line">
+    <span class="dot"></span>
+    <span>建置中<span class="cursor"></span></span>
+  </div>
+  <button class="reopen" id="reopenBtn">重新開啟 MY LINK</button>
+</main>
+
+<!-- LINKTREE MODAL -->
+<div class="overlay" id="overlay">
+  <div class="card">
+    <button class="close-btn" id="closeBtn" aria-label="關閉">✕</button>
+    <div class="card-eyebrow">Reach lzien on</div>
+    <h2 class="card-title">My Link</h2>
+    <ul class="link-list">
+      <li class="link-item">
+        <a href="https://www.instagram.com/ze_06.29" target="_blank" rel="noopener">
+          <span class="link-code">IG</span>
+          <span class="link-body">
+            <span class="link-name">Instagram</span>
+            <span class="link-handle">ze_06.29</span>
+          </span>
+          <span class="link-arrow">→</span>
+        </a>
+      </li>
+      <li class="link-item">
+        <a href="https://www.facebook.com/ze0629" target="_blank" rel="noopener">
+          <span class="link-code">FB</span>
+          <span class="link-body">
+            <span class="link-name">Facebook</span>
+            <span class="link-handle">ze0629</span>
+          </span>
+          <span class="link-arrow">→</span>
+        </a>
+      </li>
+      <li class="link-item">
+        <a href="https://line.me/ti/p/G7ig-pz6yn" target="_blank" rel="noopener">
+          <span class="link-code">LN</span>
+          <span class="link-body">
+            <span class="link-name">LINE</span>
+            <span class="link-handle">G7ig-pz6yn</span>
+          </span>
+          <span class="link-arrow">→</span>
+        </a>
+      </li>
+      <li class="link-item">
+        <a href="https://t.me/chenze_0629" target="_blank" rel="noopener">
+          <span class="link-code">TG</span>
+          <span class="link-body">
+            <span class="link-name">Telegram</span>
+            <span class="link-handle">chenze_0629</span>
+          </span>
+          <span class="link-arrow">→</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  const overlay = document.getElementById('overlay');
+  const closeBtn = document.getElementById('closeBtn');
+  const reopenBtn = document.getElementById('reopenBtn');
+
+  closeBtn.addEventListener('click', () => {
+    overlay.classList.add('hidden');
+  });
+
+  reopenBtn.addEventListener('click', () => {
+    overlay.classList.remove('hidden');
+  });
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay){
+      overlay.classList.add('hidden');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape'){
+      overlay.classList.add('hidden');
+    }
+  });
+</script>
+
+</body>
+</html>
